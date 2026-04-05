@@ -8,7 +8,8 @@ El trabajo tiene dos partes importantes:
     2. Limpieza de los datos (registros inconsistentes, vacio o inválidos), los cuales luego deberan ser almacenados utilizando modelamiento dimensional.
 
 ### Ingesta de datos
-Flujo :          Lectura de archivo parquet desde pagina web
+Flujo :          
+				Lectura de archivo parquet desde pagina web
 
                                     |
 									
@@ -26,61 +27,89 @@ Flujo :          Lectura de archivo parquet desde pagina web
 - En el pipeline **raw_ingestion** se introducen las variables={'year': year,'month': month}, que pueden ser listas de años y meses respectivamente.
 
 ### Limpieza de datos
-Flujo :  Limpieza de datos (registros inconsistentes, vacio o inválidos)
+Flujo :  
+		Limpieza de datos (registros inconsistentes, vacio o inválidos)
+		
                                     |
+									
             Se almacena en schema clean_stage en tablas por mes del año
+			
                                     |
+									
                 Se construyeron las dimensiones de los datos
+				
                                     |
+									
                 Se construye tabla de hechos por meses del año
 
 Para realizar la limpieza, se requirio realizar un analisis previo, **notebook: EDA.ipynb**, en el cual se analizan las 20 columnas del dataset. (Las variables se analizaron con el nombre original pues se tomo de referencia el documento *Yellow Trips Data Dictionary**, del sitio web https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page), despues de analisis, se utilizan los siguientes criterios para la limpieza. La cual se realizo en **SQL**, ya que en python la carga de los datos, agotaba la ram incluso realizando chunking.
+
     - VendorID: No tiene inconvenientes
+	
     - tpep_pickup_datetime: No tiene inconvenientes 
+	
     - tpep_dropoff_datetime: No tiene inconvenientes
+	
     - passenger_count: Tiene valores de 0 al 9, además de un porcentaje de nulos
+	
 	    Cero: 
             -Viaje cancelado: distancia del viaje = 0 ó valor de tarifa = 0, tiene mucha discrepacia, entonces se toma como viaje cancelado que PULocationID y DOLocationID sean iguales.
             -Puede deberse a viajes que se realizan solo como envío
             -Se revisa tarifa, tipo de pago, y bandera de sistema. No existe un valor que se repita para asumir algo
             -Error del vendedor, tampoco probable ya que no es un solo vendedor el que tiene 0 en sus registros
+			
 	    Nulos: 
             -No es un solo vendedor
             -Es un solo tipo de pago: 0 - Flex Fare trip, entiendo que esta modalidad es similar al servicio de uber talvez por eso no se cargan la información de pasajeros
             -Eliminar viajes cancelados: distancia del viaje = 0 ó valor de tarifa = 0, tiene mucha discrepacia, entonces se toma como viaje cancelado que PULocationID y DOLocationID sean iguales.
         Reemplazar null con -1: que indica que se desconoce el numero total de pasajeros
+		
     - trip_distance: No tiene valores nulos, ni distancias negativas, distancia cero (puede ser cancelación de viaje, se tendría que analizar las ubicaciones)
             -Existen distancias exageradas de varias millas, se realiza un análisis a distancias mayores a 302 millas, que de acuerdo a Google es la extensión total de NY.
             -Eliminar elementos con total base 0 o que las ubicaciones sean iguales.
+			
     - RatecodeID: Tiene valores nulos
             -Los pasajeros nulos tienen RatecodeID nulo.
             -Es un solo tipo de pago: 0 - Flex Fare trip, al ser este tipo de viajes, puede ser que no se apegue a las rutas convencionales de un taxi.
             -Eliminar viajes cancelados: distancia del viaje = 0 ó valor de tarifa = 0, tiene mucha discrepacia, entonces se toma como viaje cancelado que PULocationID y DOLocationID sean iguales.
             -Reemplazar null con 99 que significa null
+			
     - store_and_fwd_flag:  Posee valores nulos
             -Los nulos, solo tiene igual pasajeros nulos, ratecodeid nulo
             -Es un solo tipo de pago: 0 - Flex Fare trip, al ser este tipo de viajes, al ser este tipo de viajes es posible que no se almacenen y envíen de la misma manera que otros pagos.
-    - PULocationID y DOLocationID: sin valores nulos, son códigos del 1 al 265, que simbolizan borough de NY.
+    
+	- PULocationID y DOLocationID: sin valores nulos, son códigos del 1 al 265, que simbolizan borough de NY.
+	
     - payment_type: no hay nulos
+	
     - fare_amount: no hay nulos, pero existen valores negativos y en el caso de los positivos uno demasiado alto (6 cifras).
             -Valores negativos: No tomar en cuenta valores donde PULocationID y DOLocationID, son iguales y la distancia recorrida es cero. Deberia corresponder a viajes cancelados. Ademas el VendorID 2, es quien tiene estos valores de seguro una falla en su sistema, a los restantes se los convierte en positivos.
             -Valores positivos: No tomar en cuenta valores donde PULocationID y DOLocationID, son iguales y la distancia recorrida es cero. Deberia corresponder a viajes cancelados.
             -Existen tarifas altas, las cuales se eliminaran si no son RatecodeID: 4 o 5, y si el valor supera los 600 dolares (investigando en internet no es posible generar en NY mas de 500 en un día) y además la distancia menor a 300 millas (es la extension de NY)
-    - extra: No tiene valores nulos, tiene valores negativos y el máximo es 15
+    
+	- extra: No tiene valores nulos, tiene valores negativos y el máximo es 15
             -No hay patron definido para los valores negativos, mas que los valores del total es negativo, lo cuales deberían ser eliminados o vueltos positivos en la limpieza de fare_amount
-    - mta_tax: De acuerdo a internet esta tasa de 0.50 ctvs, cualquier otro valor no tiene sentido. Y además esos valores representan un 0.002% en el dataset utilizado para el analisis (2025/01). Por lo incluso seria conveniente eliminarlos.
-    - tip_amount: no hay nulos, propinas negativas son solo el 0.0035% del total del dataset (2025/01) y son del VendorID=2.
+    
+	- mta_tax: De acuerdo a internet esta tasa de 0.50 ctvs, cualquier otro valor no tiene sentido. Y además esos valores representan un 0.002% en el dataset utilizado para el analisis (2025/01). Por lo incluso seria conveniente eliminarlos.
+    
+	- tip_amount: no hay nulos, propinas negativas son solo el 0.0035% del total del dataset (2025/01) y son del VendorID=2.
             -Existen propinas por encima de 20% del total, pero en este caso son el 5%, de esta propinas varias son con cash, a pesar de que no se deberían registrar.
             -Eliminar celdas con propinas pagadas en efectivo: payment_type = 2
-    - tolls_amount: No hay valores nulos, ni valores excesivos, pero si valores negativos, los cuales provienen todos del vendedor 2, los deben manejarse con fare_amount.
-    - improvement_surcharge: De acuerdo a intenet el valor es de $1 o $0, pero en el dataset hay valores de 0.3 y -1.
+    
+	- tolls_amount: No hay valores nulos, ni valores excesivos, pero si valores negativos, los cuales provienen todos del vendedor 2, los deben manejarse con fare_amount.
+   
+	- improvement_surcharge: De acuerdo a intenet el valor es de $1 o $0, pero en el dataset hay valores de 0.3 y -1.
             -Valores negativos, se podrían manejar con fare_amount
             -Valores 0.3 representan un porcentaje mínimo que se puede eliminar.
-    - total_amount: No tiene nulos, pero si valores negativos que representan un 2% del total del dataset (2025/01), e incluso puede ser manejado con fare_amount
-    - congestion_surcharge: De acuerdo a internet el valor de este impuesto es de $2.5 o $0, se tienen valores negativos que representan un 1% del global.
+    
+	- total_amount: No tiene nulos, pero si valores negativos que representan un 2% del total del dataset (2025/01), e incluso puede ser manejado con fare_amount
+    
+	- congestion_surcharge: De acuerdo a internet el valor de este impuesto es de $2.5 o $0, se tienen valores negativos que representan un 1% del global.
             -Se tiene valores nulos, pero de igual manera no tienen un numero de pasajeros, ni un ratecodeid, además del payment = 0, es decir es un tipo de servicio Flex Fare trip, el cual de seguro no paga este impuesto, es conveniente reemplazar con 0.
-    - airport_fee:  De acuerdo a internet, los valores son de $1.75 y $0, existen otros valores que de seguro son errores de tipeo, pero se pueden reemplazar o eliminar si todavía se conservan luegos de los criterios utilizados en columnas previas.
-    - cbd_congestion_fee: Impuesto de valor $0.75 y $0, solo se tienen valores negativos, que es un mínimo porcentaje que podría eliminarse.
+    
+	- airport_fee:  De acuerdo a internet, los valores son de $1.75 y $0, existen otros valores que de seguro son errores de tipeo, pero se pueden reemplazar o eliminar si todavía se conservan luegos de los criterios utilizados en columnas previas.
+    
+	- cbd_congestion_fee: Impuesto de valor $0.75 y $0, solo se tienen valores negativos, que es un mínimo porcentaje que podría eliminarse.
 
 Este proceso lo realiza el pipeline **clean_transformation**, al cual tambien se lo ejecutado un controlador denominado **clean_controler**, en el cual similar al primer controlador se le pueden enviar las variables={'year': year,'month': month}, que pueden ser listas de años y meses respectivamente.
 
