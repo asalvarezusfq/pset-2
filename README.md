@@ -9,10 +9,15 @@ El trabajo tiene dos partes importantes:
 
 ### Ingesta de datos
 Flujo :          Lectura de archivo parquet desde pagina web
+
                                     |
+									
         Estandarizacion de nombres de columnas para tabla(Postgresql)
+		
                                     |
+									
        Almacenar datos en schema raw_data - tabla taxi_amarillo_YYYY_MM
+	   
 
 - Se crea el pipeline parametrizado **raw_ingestion**, el cual consta de un bloque Extract_raw, utilizado para leer el archivo y guardar en memoria. Transform_raw, realiza una estadarizacion de nombre de columnas (minusculas, snake). Raw_to_db, guarda los datos en chunks para evitar que el kernel se detenga. (*Lo que paso con cualquier año, ha excepcion del 2025, con el cual se puedo descargar todo el año sin problemas, pero en el caso del año 2018 por ejemplo el kernel se detenia en esta estapa e incluso en la etapa Transform*)
 
