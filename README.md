@@ -158,15 +158,15 @@ Ejecuta:
   
             raw_ingestion
 			
-B                |
+                 |
 
-U        clean_transformation
+       clean_transformation
 
-C                |
+                 |
 
-L            fact_table
+            fact_table
 
-E                |
+                 |
 
     AL FINAL:    |
 	
