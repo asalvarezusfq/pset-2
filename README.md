@@ -153,22 +153,33 @@ Para crear la tabla de hechos se utiliza el pipeline **fact_table**, el cual tam
   5. orquestador_control: Anteriormente se utilizaron otros controladores para ejecutar las operaciones de ingesta y limpieza, pero es requerido un controlador que lo haga todo a la vez,para ellos de igual manera se deben establecer las variables={'year': year,'month': month}, que pueden ser listas de años y meses respectivamente.  Este pipeline sigue el siguiente flujo.
 
 Ejecuta:
+
   POR CADA MES (incluso se podria por cada año):
+  
             raw_ingestion
+			
 B                |
+
 U        clean_transformation
+
 C                |
+
 L            fact_table
+
 E                |
+
     AL FINAL:    |
+	
         modelo_dimensional (que crea las dimensiones, una sola vez)
 
 - Para visualizar las tablas se utiliza pgAdmin (port: 9000), para acceder al servicio se utiizan las sigueintes credenciales
+  
     -Correo: sanalvarez1999@gmail.com
     -Contraseña:root
     -Contraseña de Conexión a base de datos: root
 
   Los datos se encuentran en Servers>pset2>warehouse>Schemas
+  
     1. clean: datos limpios; dimensiones y tablas de hecho
     2. clean_stage: tablas de datos luego de limpieza antes de modelo dimensional
     3. public: schema vacío
